@@ -5,13 +5,14 @@
 @contact: sherlockliao01@gmail.com
 """
 
+from fastreid.utils.checkpoint import Checkpointer
+from fastreid.engine import DefaultTrainer, default_argument_parser, default_setup, launch
+from fastreid.config import get_cfg
 import sys
 
-sys.path.append('.')
+import torch
 
-from fastreid.config import get_cfg
-from fastreid.engine import DefaultTrainer, default_argument_parser, default_setup, launch
-from fastreid.utils.checkpoint import Checkpointer
+sys.path.append('.')
 
 
 def setup(args):
@@ -46,7 +47,11 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = default_argument_parser().parse_args()
+
+    line = "--config-file /home/fast-reid/configs/VeRi/sbs_R50-ibn.yml \
+        --eval-only MODEL.WEIGHTS /home/data/feat/feat/veri_sbs_R50-ibn.pth \
+        MODEL.DEVICE \"cuda:0\" ".split()
+    args = default_argument_parser().parse_args(line)
     print("Command Line Args:", args)
     launch(
         main,

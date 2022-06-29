@@ -46,7 +46,7 @@ class ReidEvaluator(DatasetEvaluator):
         }
         self._predictions.append(prediction)
 
-    def evaluate(self):
+    def evaluate(self): #TODO: this is eval key part! find all used tricks!
         if comm.get_world_size() > 1:
             comm.synchronize()
             predictions = comm.gather(self._predictions, dst=0)
@@ -61,6 +61,7 @@ class ReidEvaluator(DatasetEvaluator):
         features = []
         pids = []
         camids = []
+        # combine all
         for prediction in predictions:
             features.append(prediction['feats'])
             pids.append(prediction['pids'])
@@ -69,6 +70,8 @@ class ReidEvaluator(DatasetEvaluator):
         features = torch.cat(features, dim=0)
         pids = torch.cat(pids, dim=0).numpy()
         camids = torch.cat(camids, dim=0).numpy()
+
+        # separating query and gallery
         # query feature, person ids and camera ids
         query_features = features[:self._num_query]
         query_pids = pids[:self._num_query]
@@ -81,7 +84,7 @@ class ReidEvaluator(DatasetEvaluator):
 
         self._results = OrderedDict()
 
-        if self.cfg.TEST.AQE.ENABLED:
+        if self.cfg.TEST.AQE.ENABLED: # rerank
             logger.info("Test with AQE setting")
             qe_time = self.cfg.TEST.AQE.QE_TIME
             qe_k = self.cfg.TEST.AQE.QE_K
@@ -103,6 +106,7 @@ class ReidEvaluator(DatasetEvaluator):
             rerank_dist = build_dist(query_features, gallery_features, metric="jaccard", k1=k1, k2=k2)
             dist = rerank_dist * (1 - lambda_value) + dist * lambda_value
 
+        # calculate cmc, ap
         from .rank import evaluate_rank
         cmc, all_AP, all_INP = evaluate_rank(dist, query_pids, gallery_pids, query_camids, gallery_camids)
 

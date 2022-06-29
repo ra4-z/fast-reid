@@ -119,9 +119,9 @@ def eval_market1501(distmat, q_pids, g_pids, q_camids, g_camids, max_rank):
         q_camid = q_camids[q_idx]
 
         # remove gallery samples that have the same pid and camid with query
-        order = indices[q_idx]
+        order = indices[q_idx] # the rank order of q_idx-th query
         remove = (g_pids[order] == q_pid) & (g_camids[order] == q_camid)
-        keep = np.invert(remove)
+        keep = np.invert(remove) 
 
         # compute cmc curve
         matches = (g_pids[order] == q_pid).astype(np.int32)
@@ -130,7 +130,7 @@ def eval_market1501(distmat, q_pids, g_pids, q_camids, g_camids, max_rank):
             # this condition is true when query identity does not appear in gallery
             continue
 
-        cmc = raw_cmc.cumsum()
+        cmc = raw_cmc.cumsum() # the cumulative sum of the elements along a given axis
 
         pos_idx = np.where(raw_cmc == 1)
         max_pos_idx = np.max(pos_idx)
@@ -139,15 +139,15 @@ def eval_market1501(distmat, q_pids, g_pids, q_camids, g_camids, max_rank):
 
         cmc[cmc > 1] = 1
 
-        all_cmc.append(cmc[:max_rank])
+        all_cmc.append(cmc[:max_rank]) # get the first #max_rank cmc
         num_valid_q += 1.
 
         # compute average precision
         # reference: https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Average_precision
-        num_rel = raw_cmc.sum()
+        num_rel = raw_cmc.sum() # 匹配到的数量（已经去除同cam同id的了）
         tmp_cmc = raw_cmc.cumsum()
         tmp_cmc = [x / (i + 1.) for i, x in enumerate(tmp_cmc)]
-        tmp_cmc = np.asarray(tmp_cmc) * raw_cmc
+        tmp_cmc = np.asarray(tmp_cmc) * raw_cmc # 只有匹配上的那个才加入计算
         AP = tmp_cmc.sum() / num_rel
         all_AP.append(AP)
 
@@ -174,7 +174,7 @@ def evaluate_rank(
         g_camids,
         max_rank=50,
         use_metric_cuhk03=False,
-        use_cython=True,
+        use_cython=False,
 ):
     """Evaluates CMC rank.
     Args:
