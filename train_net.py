@@ -9,10 +9,13 @@ from fastreid.utils.checkpoint import Checkpointer
 from fastreid.engine import DefaultTrainer, default_argument_parser, default_setup, launch
 from fastreid.config import get_cfg
 import sys
-
 import torch
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 sys.path.append('.')
+
 
 
 def setup(args):
@@ -49,9 +52,30 @@ def main(args):
 if __name__ == "__main__":
 
     line = "--config-file /home/fast-reid/configs/VeRi/sbs_R50-ibn.yml \
-        --eval-only MODEL.WEIGHTS /home/data/feat/feat/veri_sbs_R50-ibn.pth \
+        --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veri_sbs_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
-    args = default_argument_parser().parse_args(line)
+    
+    line1 = "--config-file /home/fast-reid/configs/VehicleID/bagtricks_R50-ibn_veri.yml \
+        --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/vehicleid_bot_R50-ibn.pth \
+        MODEL.DEVICE \"cuda:0\" ".split()
+    
+    line2 = "--config-file /home/fast-reid/configs/VehicleID/bagtricks_R50-ibn.yml \
+        --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/vehicleid_bot_R50-ibn.pth \
+        MODEL.DEVICE \"cuda:0\" ".split()
+
+    line3 = "--config-file /home/fast-reid/configs/VeRi/sbs_R50-ibn_vehicleID.yml \
+        --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veri_sbs_R50-ibn.pth \
+        MODEL.DEVICE \"cuda:0\" ".split()
+    
+    line4 = "--config-file /home/fast-reid/configs/VERIWild/bagtricks_R50-ibn_VehicleID.yml \
+        --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veriwild_bot_R50-ibn.pth \
+        MODEL.DEVICE \"cuda:0\" ".split()
+    
+    line5 = "--config-file /home/fast-reid/configs/VERIWild/bagtricks_R50-ibn_veri.yml \
+        --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veriwild_bot_R50-ibn.pth \
+        MODEL.DEVICE \"cuda:0\" ".split()
+
+    args = default_argument_parser().parse_args(line1)
     print("Command Line Args:", args)
     launch(
         main,

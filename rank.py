@@ -102,6 +102,7 @@ def eval_market1501(distmat, q_pids, g_pids, q_camids, g_camids, max_rank):
     """Evaluation with market1501 metric
     Key: for each query identity, its gallery images from the same camera view are discarded.
     """
+    rank_id_mat = []
     num_q, num_g = distmat.shape
     q_pids, g_pids, q_camids, g_camids = np.array(q_pids), \
         np.array(g_pids), np.array(q_camids), np.array(g_camids)
@@ -133,6 +134,8 @@ def eval_market1501(distmat, q_pids, g_pids, q_camids, g_camids, max_rank):
         raw_cmc = matches[keep]
         if not np.any(raw_cmc):
             # this condition is true when query identity does not appear in gallery
+            ### record the rank order
+            rank_id_mat.append([-1]*max_rank)
             continue
 
         cmc = raw_cmc.cumsum()  # the cumulative sum of the elements along a given axis
@@ -156,12 +159,16 @@ def eval_market1501(distmat, q_pids, g_pids, q_camids, g_camids, max_rank):
         AP = tmp_cmc.sum() / num_rel
         all_AP.append(AP)
 
+        ### record the rank order
+        rank_id_mat.append(order[keep][:max_rank])
+
+
     assert num_valid_q > 0, 'Error: all query identities do not appear in gallery'
 
     all_cmc = np.asarray(all_cmc).astype(np.float32)
     all_cmc = all_cmc.sum(0) / num_valid_q
 
-    return all_cmc, all_AP, all_INP
+    return all_cmc, all_AP, all_INP, rank_id_mat
 
 
 def evaluate_py(distmat, q_pids, g_pids, q_camids, g_camids, max_rank, use_metric_cuhk03):

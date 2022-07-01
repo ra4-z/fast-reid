@@ -114,6 +114,12 @@ def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
                 total_compute_time = 0
 
             start_compute_time = time.perf_counter()
+
+            ## -------test downsampling then upsampling------------
+            # inputs['images'] = torch.nn.functional.interpolate(inputs['images'],(64,64))
+            # inputs['images'] = torch.nn.functional.interpolate(inputs['images'],(256,256))
+
+
             outputs = model(inputs) # get features
             # Flip test
             if flip_test:

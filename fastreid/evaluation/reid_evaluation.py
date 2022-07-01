@@ -93,6 +93,17 @@ class ReidEvaluator(DatasetEvaluator):
 
         dist = build_dist(query_features, gallery_features, self.cfg.TEST.METRIC)
 
+        ## ----for testing----
+        import pandas as pd
+        intermidiate_res_path = '/home/fast-reid/intermidiate_res/'
+        pd.DataFrame(dist[::3,::21]).to_excel(intermidiate_res_path+"dist_mat_VeRi_sbs_R50-ibn_VeRi.xlsx",index=False)
+        # print("dist saved")
+        # pd.DataFrame(gallery_pids).to_excel(intermidiate_res_path+"gallery_pids_VeRi_sbs_R50-ibn_VeRi.xlsx")
+        # pd.DataFrame(query_pids).to_excel(intermidiate_res_path+"query_pids_VeRi_sbs_R50-ibn_VeRi.xlsx")
+        # pd.DataFrame(gallery_camids).to_excel(intermidiate_res_path+"gallery_camids_VeRi_sbs_R50-ibn_VeRi.xlsx")
+        # pd.DataFrame(query_camids).to_excel(intermidiate_res_path+"query_camids_VeRi_sbs_R50-ibn_VeRi.xlsx")
+        ## ------------------
+
         if self.cfg.TEST.RERANK.ENABLED:
             logger.info("Test with rerank setting")
             k1 = self.cfg.TEST.RERANK.K1
