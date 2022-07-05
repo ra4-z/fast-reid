@@ -44,9 +44,9 @@ def main(args):
         # return res
 
         data_transforms = transforms.Compose([
-            transforms.Resize((256, 256), interpolation=3),
+            transforms.Resize((256, 256), interpolation=3), # 一模一样
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]) # fast-reid没做这个 
         ])
         mydataset = MyDataset(mydata, transform=data_transforms)
         dataloader = DataLoader(mydataset, batch_size=16)
@@ -60,12 +60,12 @@ def main(args):
         dist_mat = dist_mat.cpu().numpy()
         
 
-        # import pandas as pd
-        # np.savetxt(intermidiate_res_path+'dist_mat.txt', dist_mat)
-        # pd.DataFrame(dist_mat).to_excel(intermidiate_res_path+"dist_mat.xlsx",index=False)
-        # pd.DataFrame(camids).to_excel(intermidiate_res_path+"camid.xlsx")
-        # pd.DataFrame(labels).to_excel(intermidiate_res_path+"label.xlsx")
-        # pd.DataFrame(pic_names).to_excel(intermidiate_res_path+"pic_name.xlsx")
+        import pandas as pd
+        np.savetxt(intermidiate_res_path+'dist_mat.txt', dist_mat)
+        pd.DataFrame(dist_mat).to_excel(intermidiate_res_path+"dist_mat.xlsx",index=False)
+        pd.DataFrame(camids).to_excel(intermidiate_res_path+"camid.xlsx")
+        pd.DataFrame(labels).to_excel(intermidiate_res_path+"label.xlsx")
+        pd.DataFrame(pic_names).to_excel(intermidiate_res_path+"pic_name.xlsx")
         
         # import os
         # k = 10
@@ -98,45 +98,45 @@ def main(args):
         print(
             f"mAP:{mAP:.4f}\t R1:{all_cmc[0]:.4f}\t R5:{all_cmc[4]:.4f}\t R10:{all_cmc[9]:.4f}")
         
-        # copy src and res pictures
-        import cv2
-        text_pos = (10, 10)
-        font = cv2.FONT_HERSHEY_PLAIN
-        font_size = 0.5
-        font_color = (0,0,0)
-        font_thickness = 1
-        import os
-        res_dir = '/home/fast-reid/res20220630/'
-        if not os.path.exists(res_dir):
-            os.makedirs(res_dir)
-        for i,ranks in enumerate(rank_id_mat):
-            concat = None
-            pics_to_concat = []
-            pics_to_concat.append(pic_names[i])
-            height = cv2.imread(mydata+pic_names[i]).shape[0]
-            for rank in ranks:
-                pics_to_concat.append(pic_names[rank])
-                h = cv2.imread(mydata+pic_names[rank]).shape[0]
-                height = max(h,height)
+        # # copy src and res pictures
+        # import cv2
+        # text_pos = (10, 10)
+        # font = cv2.FONT_HERSHEY_PLAIN
+        # font_size = 0.5
+        # font_color = (0,0,0)
+        # font_thickness = 1
+        # import os
+        # res_dir = '/home/fast-reid/res20220630/'
+        # if not os.path.exists(res_dir):
+        #     os.makedirs(res_dir)
+        # for i,ranks in enumerate(rank_id_mat):
+        #     concat = None
+        #     pics_to_concat = []
+        #     pics_to_concat.append(pic_names[i])
+        #     height = cv2.imread(mydata+pic_names[i]).shape[0]
+        #     for rank in ranks:
+        #         pics_to_concat.append(pic_names[rank])
+        #         h = cv2.imread(mydata+pic_names[rank]).shape[0]
+        #         height = max(h,height)
             
-            for j,pic in enumerate(pics_to_concat):
-                img = cv2.imread(mydata+pic)
-                h,w,c = img.shape
-                img = cv2.copyMakeBorder(img,0,height-h,0,0,cv2.BORDER_CONSTANT,value=[0,0,0])
-                if j == 0:
-                    img = cv2.rectangle(img,(0,0),(w,h),(255,0,0),2) # itself
-                    img = cv2.putText(img, pic_names[i][:3], text_pos, font, font_size, font_color, font_thickness)
-                    concat = img
-                elif pic_names[ranks[j-1]][:3]==pic_names[i][:3]:
-                    img = cv2.rectangle(img,(0,0),(w,h),(0,255,0),2) # the right pic
-                    img = cv2.putText(img, pic_names[ranks[j-1]][:3], text_pos, font, font_size, font_color, font_thickness)
-                    concat = cv2.hconcat([concat,img])
-                else:
-                    img = cv2.rectangle(img,(0,0),(w,h),(0,0,255),2) # the wrong pic
-                    img = cv2.putText(img, pic_names[ranks[j-1]][:3], text_pos, font, font_size, font_color, font_thickness)
-                    concat = cv2.hconcat([concat,img])
+        #     for j,pic in enumerate(pics_to_concat):
+        #         img = cv2.imread(mydata+pic)
+        #         h,w,c = img.shape
+        #         img = cv2.copyMakeBorder(img,0,height-h,0,0,cv2.BORDER_CONSTANT,value=[0,0,0])
+        #         if j == 0:
+        #             img = cv2.rectangle(img,(0,0),(w,h),(255,0,0),2) # itself
+        #             img = cv2.putText(img, pic_names[i][:3], text_pos, font, font_size, font_color, font_thickness)
+        #             concat = img
+        #         elif pic_names[ranks[j-1]][:3]==pic_names[i][:3]:
+        #             img = cv2.rectangle(img,(0,0),(w,h),(0,255,0),2) # the right pic
+        #             img = cv2.putText(img, pic_names[ranks[j-1]][:3], text_pos, font, font_size, font_color, font_thickness)
+        #             concat = cv2.hconcat([concat,img])
+        #         else:
+        #             img = cv2.rectangle(img,(0,0),(w,h),(0,0,255),2) # the wrong pic
+        #             img = cv2.putText(img, pic_names[ranks[j-1]][:3], text_pos, font, font_size, font_color, font_thickness)
+        #             concat = cv2.hconcat([concat,img])
 
-            cv2.imwrite(res_dir+'res_'+pic_names[i],concat)
+        #     cv2.imwrite(res_dir+'res_'+pic_names[i],concat)
 
 
     print("done")
@@ -144,7 +144,7 @@ def main(args):
 
 if __name__ == '__main__':
     line = "--config-file /home/fast-reid/configs/VeRi/sbs_R50-ibn.yml \
-        --eval-only MODEL.WEIGHTS /home/data/feat/feat/veri_sbs_R50-ibn.pth \
+        --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veri_sbs_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
     line1 = "--config-file /home/fast-reid/configs/VERIWild/bagtricks_R50-ibn.yml \
         --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veriwild_bot_R50-ibn.pth \
@@ -152,7 +152,7 @@ if __name__ == '__main__':
     line2 = "--config-file /home/fast-reid/configs/VehicleID/bagtricks_R50-ibn.yml \
         --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/vehicleid_bot_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
-    args = default_argument_parser().parse_args(line2)
+    args = default_argument_parser().parse_args(line)
     print("Command Line Args:", args)
     launch(
         main,

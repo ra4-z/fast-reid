@@ -12,7 +12,7 @@ import sys
 
 import torch
 
-sys.path.append('.')
+sys.path.append('/home/')
 
 
 def setup(args):

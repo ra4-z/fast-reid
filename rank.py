@@ -134,7 +134,7 @@ def eval_market1501(distmat, q_pids, g_pids, q_camids, g_camids, max_rank):
         raw_cmc = matches[keep]
         if not np.any(raw_cmc):
             # this condition is true when query identity does not appear in gallery
-            ### record the rank order
+            # record the rank order
             rank_id_mat.append([-1]*max_rank)
             continue
 
@@ -159,9 +159,8 @@ def eval_market1501(distmat, q_pids, g_pids, q_camids, g_camids, max_rank):
         AP = tmp_cmc.sum() / num_rel
         all_AP.append(AP)
 
-        ### record the rank order
+        # record the rank order
         rank_id_mat.append(order[keep][:max_rank])
-
 
     assert num_valid_q > 0, 'Error: all query identities do not appear in gallery'
 

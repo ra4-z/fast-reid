@@ -12,27 +12,27 @@ def extract_info(model, dataloaders, feat_len=2048):
     labels = []
     pic_names = []
     camids = []
-    count = 0
     for data in dataloaders:
         imgs, camid, label, pic_name = data
         camids.extend(camid.tolist())
         labels.extend(label.tolist())
         pic_names.extend(pic_name)
         n, c, h, w = imgs.size()
-        count += n
-        ff = torch.FloatTensor(n, feat_len).zero_().cuda()
+        # ff = torch.FloatTensor(n, feat_len).zero_().cuda()
 
         input_img = Variable(imgs.cuda())  # input_img = imgs
         with torch.no_grad():
             outputs = model(input_img)
 
         # print(outputs.size())
-        ff += outputs
-        # norm feature
-        fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
-        ff = ff.div(fnorm.expand_as(ff))
+        # # ??? norm for what ???
+        # ff += outputs
+        # # norm feature
+        # fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
+        # ff = ff.div(fnorm.expand_as(ff))
         # print(ff.shape)
-        features = torch.cat((features, ff.data.cpu().float()), 0)  # catenate
+        # features = torch.cat((features, ff.data.cpu().float()), 0)  # catenate
+        features = torch.cat((features, outputs.data.cpu().float()), 0)
     return features, camids, labels, pic_names
 
 

@@ -4,6 +4,7 @@ from torchvision import datasets, transforms
 from torch.autograd import Variable
 from PIL import Image, ImageFile
 import os
+import numpy as np
 
 default_path = "/home/data/frames20220628/"  # 文件夹目录
 
@@ -36,6 +37,7 @@ class MyDataset(Dataset):
         if self.transform is not None:
             img = self.transform(img)
         return img, camid, label, self.name_list[index]
+        # return np.array(img), np.array(camid), np.array(label), np.array(self.name_list[index])
 
     def read_image(self, img_path):
         """Keep reading image until succeed.

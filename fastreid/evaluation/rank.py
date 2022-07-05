@@ -1,3 +1,4 @@
+# modified by Shengyuan
 # credits: https://github.com/KaiyangZhou/deep-person-reid/blob/master/torchreid/metrics/rank.py
 
 import warnings
@@ -112,6 +113,8 @@ def eval_market1501(distmat, q_pids, g_pids, q_camids, g_camids, max_rank):
     all_AP = []
     all_INP = []
     num_valid_q = 0.  # number of valid query
+    ### to give matched rank list
+    rank_id_mat = []
 
     for q_idx in range(num_q):
         # get query pid and camid
@@ -128,6 +131,8 @@ def eval_market1501(distmat, q_pids, g_pids, q_camids, g_camids, max_rank):
         raw_cmc = matches[keep]  # binary vector, positions with value 1 are correct matches
         if not np.any(raw_cmc):
             # this condition is true when query identity does not appear in gallery
+            ### to give matched rank list
+            rank_id_mat.append([-1]*max_rank)
             continue
 
         cmc = raw_cmc.cumsum() # the cumulative sum of the elements along a given axis
@@ -151,12 +156,15 @@ def eval_market1501(distmat, q_pids, g_pids, q_camids, g_camids, max_rank):
         AP = tmp_cmc.sum() / num_rel
         all_AP.append(AP)
 
+        ### record the rank order
+        rank_id_mat.append(order[keep][:max_rank])
+
     assert num_valid_q > 0, 'Error: all query identities do not appear in gallery'
 
     all_cmc = np.asarray(all_cmc).astype(np.float32)
     all_cmc = all_cmc.sum(0) / num_valid_q
 
-    return all_cmc, all_AP, all_INP
+    return all_cmc, all_AP, all_INP,rank_id_mat
 
 
 def evaluate_py(distmat, q_pids, g_pids, q_camids, g_camids, max_rank, use_metric_cuhk03):

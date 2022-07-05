@@ -1,4 +1,5 @@
 # encoding: utf-8
+# modified by Shengyuan
 """
 @author:  liaoxingyu
 @contact: sherlockliao01@gmail.com
@@ -41,12 +42,14 @@ class ReidEvaluator(DatasetEvaluator):
         prediction = {
             'feats': outputs.to(self._cpu_device, torch.float32),
             'pids': inputs['targets'].to(self._cpu_device),
-            'camids': inputs['camids'].to(self._cpu_device)
-
+            'camids': inputs['camids'].to(self._cpu_device),
+            'img_paths': inputs['img_paths'] #list
         }
         self._predictions.append(prediction)
 
-    def evaluate(self): #TODO: this is eval key part! find all used tricks!
+    def evaluate(self, vis=True): #TODO: this is eval key part! find all used tricks!
+        logger = logging.getLogger(__name__)
+        logger.info("Evaluating results")
         if comm.get_world_size() > 1:
             comm.synchronize()
             predictions = comm.gather(self._predictions, dst=0)
@@ -61,26 +64,31 @@ class ReidEvaluator(DatasetEvaluator):
         features = []
         pids = []
         camids = []
+        img_paths = []
         # combine all
         for prediction in predictions:
             features.append(prediction['feats'])
             pids.append(prediction['pids'])
             camids.append(prediction['camids'])
+            img_paths.extend(prediction['img_paths'])
 
         features = torch.cat(features, dim=0)
         pids = torch.cat(pids, dim=0).numpy()
         camids = torch.cat(camids, dim=0).numpy()
+        img_paths = img_paths
 
         # separating query and gallery
         # query feature, person ids and camera ids
         query_features = features[:self._num_query]
         query_pids = pids[:self._num_query]
         query_camids = camids[:self._num_query]
+        query_img_paths = img_paths[:self._num_query]
 
         # gallery features, person ids and camera ids
         gallery_features = features[self._num_query:]
         gallery_pids = pids[self._num_query:]
         gallery_camids = camids[self._num_query:]
+        gallery_img_paths = img_paths[self._num_query:]
 
         self._results = OrderedDict()
 
@@ -94,9 +102,9 @@ class ReidEvaluator(DatasetEvaluator):
         dist = build_dist(query_features, gallery_features, self.cfg.TEST.METRIC)
 
         ## ----for testing----
-        import pandas as pd
-        intermidiate_res_path = '/home/fast-reid/intermidiate_res/'
-        pd.DataFrame(dist[::3,::21]).to_excel(intermidiate_res_path+"dist_mat_VeRi_sbs_R50-ibn_VeRi.xlsx",index=False)
+        # import pandas as pd
+        # intermidiate_res_path = '/home/fast-reid/intermidiate_res/'
+        # pd.DataFrame(dist[::3,::21]).to_excel(intermidiate_res_path+"dist_mat_VeRi_sbs_R50-ibn_VeRi.xlsx",index=False)
         # print("dist saved")
         # pd.DataFrame(gallery_pids).to_excel(intermidiate_res_path+"gallery_pids_VeRi_sbs_R50-ibn_VeRi.xlsx")
         # pd.DataFrame(query_pids).to_excel(intermidiate_res_path+"query_pids_VeRi_sbs_R50-ibn_VeRi.xlsx")
@@ -119,7 +127,11 @@ class ReidEvaluator(DatasetEvaluator):
 
         # calculate cmc, ap
         from .rank import evaluate_rank
-        cmc, all_AP, all_INP = evaluate_rank(dist, query_pids, gallery_pids, query_camids, gallery_camids)
+        cmc, all_AP, all_INP, rank_id_mat = evaluate_rank(dist, query_pids, gallery_pids, query_camids, gallery_camids)
+
+        ### visualize rank_id_mat
+        if vis:
+            vis_res_imgs(rank_id_mat, query_img_paths, gallery_img_paths)
 
         mAP = np.mean(all_AP)
         mINP = np.mean(all_INP)
@@ -156,3 +168,57 @@ class ReidEvaluator(DatasetEvaluator):
                     ">>> done with reid evaluation cython tool. Compilation time: {:.3f} "
                     "seconds".format(time.time() - start_time))
         comm.synchronize()
+
+
+
+
+def vis_res_imgs(rank_id_mat, q_pics, g_pics, res_dir='/home/fast-reid/res/',root_dir='/home/fast-reid/'):
+    logger = logging.getLogger(__name__)
+    logger.info("visualizing results")
+    # copy src and res pictures
+    import cv2
+    text_pos = (15, 15)
+    font = cv2.FONT_HERSHEY_PLAIN
+    font_size = 1
+    font_color = (0,0,0)
+    font_thickness = 2
+    import os
+    if not os.path.exists(res_dir):
+        os.makedirs(res_dir)
+    for i,ranks in enumerate(rank_id_mat):
+        # invalid rank
+        if ranks[0]==-1:
+            continue
+        # get query and gallery picutres
+        concat = None
+        pics_to_concat = []
+        pics_to_concat.append(q_pics[i])
+        height = cv2.imread(root_dir+q_pics[i]).shape[0]
+        for rank in ranks:
+            pics_to_concat.append(g_pics[rank])
+            h = cv2.imread(root_dir+g_pics[rank]).shape[0]
+            height = max(h,height)
+        
+        # get query pic id
+        q_id = q_pics[i].split('/')[-1].split('_')[0]
+        # concat pictures
+        for j,pic in enumerate(pics_to_concat):
+            img = cv2.imread(root_dir+pic)
+            h,w,c = img.shape
+            img = cv2.copyMakeBorder(img,0,height-h,0,0,cv2.BORDER_CONSTANT,value=[0,0,0])
+            
+            if j == 0: # src pic
+                img = cv2.rectangle(img,(0,0),(w,h),(255,0,0),2) # itself
+                img = cv2.putText(img, q_id, text_pos, font, font_size, font_color, font_thickness)
+                concat = img
+            else:
+                # get gallery pic id
+                g_id = g_pics[ranks[j-1]].split('/')[-1].split('_')[0]
+                if g_id==q_id: # the right pic
+                    img = cv2.rectangle(img,(0,0),(w,h),(0,255,0),2) 
+                else: # the wrong pic
+                    img = cv2.rectangle(img,(0,0),(w,h),(0,0,255),2) 
+                img = cv2.putText(img, g_id, text_pos, font, font_size, font_color, font_thickness)
+                concat = cv2.hconcat([concat,img])
+
+        cv2.imwrite(res_dir+'res_'+q_pics[i].split('/')[-1],concat)
