@@ -119,7 +119,7 @@ def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
             # inputs['images'] = torch.nn.functional.interpolate(inputs['images'],(64,64))
             # inputs['images'] = torch.nn.functional.interpolate(inputs['images'],(256,256))
 
-
+            # inputs is {'images':..., }
             outputs = model(inputs) # get features
             # Flip test
             if flip_test:

@@ -47,7 +47,7 @@ class ReidEvaluator(DatasetEvaluator):
         }
         self._predictions.append(prediction)
 
-    def evaluate(self, vis=True): #TODO: this is eval key part! find all used tricks!
+    def evaluate(self, vis=True): 
         logger = logging.getLogger(__name__)
         logger.info("Evaluating results")
         if comm.get_world_size() > 1:
@@ -131,7 +131,7 @@ class ReidEvaluator(DatasetEvaluator):
 
         ### visualize rank_id_mat
         if vis:
-            vis_res_imgs(rank_id_mat, query_img_paths, gallery_img_paths)
+            vis_res_imgs(rank_id_mat, dist, query_img_paths, gallery_img_paths)
 
         mAP = np.mean(all_AP)
         mINP = np.mean(all_INP)
@@ -172,14 +172,15 @@ class ReidEvaluator(DatasetEvaluator):
 
 
 
-def vis_res_imgs(rank_id_mat, q_pics, g_pics, res_dir='/home/fast-reid/res/',root_dir='/home/fast-reid/'):
+def vis_res_imgs(rank_id_mat, dist, q_pics, g_pics, res_dir='/home/fast-reid/res/',root_dir='/home/fast-reid/'):
     logger = logging.getLogger(__name__)
     logger.info("visualizing results")
     # copy src and res pictures
     import cv2
-    text_pos = (15, 15)
+    text_side_len = 10
+    text_pos = (0, text_side_len) #(x,y) of left bottom corner of text
     font = cv2.FONT_HERSHEY_PLAIN
-    font_size = 1
+    font_size = text_side_len//10
     font_color = (0,0,0)
     font_thickness = 2
     import os
@@ -208,17 +209,18 @@ def vis_res_imgs(rank_id_mat, q_pics, g_pics, res_dir='/home/fast-reid/res/',roo
             img = cv2.copyMakeBorder(img,0,height-h,0,0,cv2.BORDER_CONSTANT,value=[0,0,0])
             
             if j == 0: # src pic
-                img = cv2.rectangle(img,(0,0),(w,h),(255,0,0),2) # itself
+                img = cv2.rectangle(img,(0,0),(w,h),(255,0,0),2) # blue for itself
                 img = cv2.putText(img, q_id, text_pos, font, font_size, font_color, font_thickness)
                 concat = img
             else:
                 # get gallery pic id
                 g_id = g_pics[ranks[j-1]].split('/')[-1].split('_')[0]
                 if g_id==q_id: # the right pic
-                    img = cv2.rectangle(img,(0,0),(w,h),(0,255,0),2) 
+                    img = cv2.rectangle(img,(0,0),(w,h),(0,255,0),2) # green for the right
                 else: # the wrong pic
-                    img = cv2.rectangle(img,(0,0),(w,h),(0,0,255),2) 
-                img = cv2.putText(img, g_id, text_pos, font, font_size, font_color, font_thickness)
+                    img = cv2.rectangle(img,(0,0),(w,h),(0,0,255),2) # red for the wrong
+                img = cv2.putText(img, g_id, text_pos, font, font_size, font_color, font_thickness) # id
+                img = cv2.putText(img, f"{dist[i][ranks[j-1]]:0.4f}", (0,h), font, font_size, font_color, font_thickness) # dist
                 concat = cv2.hconcat([concat,img])
 
         cv2.imwrite(res_dir+'res_'+q_pics[i].split('/')[-1],concat)

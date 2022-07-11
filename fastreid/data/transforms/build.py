@@ -4,6 +4,7 @@
 @contact: sherlockliao01@gmail.com
 """
 
+from cv2 import normalize
 import torchvision.transforms as T
 
 from .transforms import *
@@ -91,10 +92,17 @@ def build_transforms(cfg, is_train=True):
         size_test = cfg.INPUT.SIZE_TEST
         do_crop = cfg.INPUT.CROP.ENABLED
         crop_size = cfg.INPUT.CROP.SIZE
+        normal = cfg.TEST.NORMAL
+
 
         if size_test[0] > 0:
             res.append(T.Resize(size_test[0] if len(size_test) == 1 else size_test, interpolation=3))
         if do_crop:
             res.append(T.CenterCrop(size=crop_size[0] if len(crop_size) == 1 else crop_size))
         res.append(ToTensor())
+        
+        ## for pretrained in imgaenet
+        if normal:
+            res.append(T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]))
+
     return T.Compose(res)

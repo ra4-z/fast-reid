@@ -36,6 +36,9 @@ def main(args):
     if args.eval_only:
         cfg.defrost()
         cfg.MODEL.BACKBONE.PRETRAIN = False
+
+        cfg.TEST.NORMAL = False
+        
         model = DefaultTrainer.build_model(cfg)
 
         Checkpointer(model).load(cfg.MODEL.WEIGHTS)  # load trained model
@@ -95,7 +98,7 @@ if __name__ == "__main__":
 
     line9 = "--config-file /home/fast-reid/configs/VeRi/sbs_R50-ibn.yml \
         MODEL.DEVICE \"cuda:0\" ".split()
-    args = default_argument_parser().parse_args(line)
+    args = default_argument_parser().parse_args(line1)
     print("Command Line Args:", args)
     launch(
         main,

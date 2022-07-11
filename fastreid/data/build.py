@@ -147,6 +147,9 @@ def build_reid_test_loader(test_set, test_batch_size, num_query, num_workers=4):
     mini_batch_size = test_batch_size // comm.get_world_size()
     data_sampler = samplers.InferenceSampler(len(test_set))
     batch_sampler = torch.utils.data.BatchSampler(data_sampler, mini_batch_size, False)
+
+
+
     test_loader = DataLoaderX(
         comm.get_local_rank(),
         dataset=test_set,
