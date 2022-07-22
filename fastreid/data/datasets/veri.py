@@ -58,8 +58,9 @@ class VeRi(ImageDataset):
         for img_path in img_paths:
             pid, camid = map(int, pattern.search(img_path).groups())
             if pid == -1: continue  # junk images are just ignored
-            assert 0 <= pid <= 776
-            assert 1 <= camid <= 20
+            # to make it compatible to my datasets
+            assert 0 <= pid <= 1776 
+            assert 0 <= camid <= 20
             camid -= 1  # index starts from 0
             if is_train:
                 pid = self.dataset_name + "_" + str(pid)

@@ -52,51 +52,51 @@ def main(args):
 
 
 if __name__ == "__main__":
-
-    line = "--config-file /home/fast-reid/configs/VeRi/sbs_R50-ibn.yml \
+    home_dir = "/data/codes/fast-reid/"
+    line = f"--config-file {home_dir}configs/VeRi/sbs_R50-ibn.yml \
         --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veri_sbs_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
     
-    line1 = "--config-file /home/fast-reid/configs/VehicleID/bagtricks_R50-ibn_veri.yml \
+    line1 = f"--config-file {home_dir}configs/VehicleID/bagtricks_R50-ibn_veri.yml \
         --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/vehicleid_bot_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
     
-    line2 = "--config-file /home/fast-reid/configs/VehicleID/bagtricks_R50-ibn.yml \
+    line2 = f"--config-file {home_dir}configs/VehicleID/bagtricks_R50-ibn.yml \
         --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/vehicleid_bot_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
 
-    line3 = "--config-file /home/fast-reid/configs/VeRi/sbs_R50-ibn_vehicleID.yml \
+    line3 = f"--config-file {home_dir}configs/VeRi/sbs_R50-ibn_vehicleID.yml \
         --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veri_sbs_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
     
-    line4 = "--config-file /home/fast-reid/configs/VERIWild/bagtricks_R50-ibn_VehicleID.yml \
+    line4 = f"--config-file {home_dir}configs/VERIWild/bagtricks_R50-ibn_VehicleID.yml \
         --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veriwild_bot_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
     
-    line5 = "--config-file /home/fast-reid/configs/VERIWild/bagtricks_R50-ibn_veri.yml \
+    line5 = f"--config-file {home_dir}configs/VERIWild/bagtricks_R50-ibn_veri.yml \
         --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veriwild_bot_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
 
     # train
-    line6 = "--config-file /home/fast-reid/configs/VeRi/sbs_R50-ibn.yml \
+    line6 = f"--config-file {home_dir}configs/VeRi/sbs_R50-ibn.yml \
          --resume \
          MODEL.WEIGHTS /data/data/fastreid_pth/veri_sbs_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
 
-    line7 = "--config-file /home/fast-reid/configs/VeRi/sbs_R50-ibn.yml \
+    line7 = f"--config-file {home_dir}configs/VeRi/sbs_R50-ibn.yml \
         --resume \
-         MODEL.WEIGHTS /home/fast-reid/logs/veri/sbs_R50-ibn/model_best.pth \
+         MODEL.WEIGHTS {home_dir}logs/veri/sbs_R50-ibn/model_best.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
     
-    line8 = "--config-file /home/fast-reid/configs/VeRi/sbs_R50-ibn.yml \
-        --eval-only MODEL.WEIGHTS /home/fast-reid/logs/veri/sbs_R50-ibn/model_best.pth \
+    line8 = f"--config-file {home_dir}configs/VeRi/sbs_R50-ibn.yml \
+        --eval-only MODEL.WEIGHTS {home_dir}logs/veri/sbs_R50-ibn/model_best.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
 
-    line9 = "--config-file /home/fast-reid/configs/VeRi/sbs_R50-ibn.yml \
+    line9 = f"--config-file {home_dir}configs/VeRi/sbs_R50-ibn.yml \
         MODEL.DEVICE \"cuda:0\" ".split()
 
     # test other model, pay attention to input size
-    line10 = "--config-file /home/fast-reid/configs/VeRi/sbs_R50-ibn_aicity2020.yml \
+    line10 = f"--config-file {home_dir}configs/VeRi/sbs_R50-ibn_aicity2020.yml \
         --eval-only MODEL.DEVICE \"cuda:0\"".split()
 
     args = default_argument_parser().parse_args(line)
