@@ -52,33 +52,7 @@ class DatasetEvaluator:
         pass
 
 
-# class DatasetEvaluators(DatasetEvaluator):
-#     def __init__(self, evaluators):
-#         assert len(evaluators)
-#         super().__init__()
-#         self._evaluators = evaluators
-#
-#     def reset(self):
-#         for evaluator in self._evaluators:
-#             evaluator.reset()
-#
-#     def process(self, input, output):
-#         for evaluator in self._evaluators:
-#             evaluator.process(input, output)
-#
-#     def evaluate(self):
-#         results = OrderedDict()
-#         for evaluator in self._evaluators:
-#             result = evaluator.evaluate()
-#             if is_main_process() and result is not None:
-#                 for k, v in result.items():
-#                     assert (
-#                             k not in results
-#                     ), "Different evaluators produce results with the same key {}".format(k)
-#                     results[k] = v
-#         return results
-
-
+# DONE TODO: data changed to (img_path, pid, camid, frameid) 
 def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
     """
     Run model on the data_loader and evaluate the metrics with evaluator.
@@ -115,10 +89,6 @@ def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
 
             start_compute_time = time.perf_counter()
 
-            ## -------test downsampling then upsampling------------
-            # inputs['images'] = torch.nn.functional.interpolate(inputs['images'],(64,64))
-            # inputs['images'] = torch.nn.functional.interpolate(inputs['images'],(256,256))
-
             # inputs is {'images':..., }
             outputs = model(inputs) # get features
             # Flip test
@@ -129,7 +99,7 @@ def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
             total_compute_time += time.perf_counter() - start_compute_time
-            evaluator.process(inputs, outputs)
+            evaluator.process(inputs, outputs) # 每次的结果和输入，存起来
 
             iters_after_start = idx + 1 - num_warmup * int(idx >= num_warmup)
             seconds_per_batch = total_compute_time / iters_after_start

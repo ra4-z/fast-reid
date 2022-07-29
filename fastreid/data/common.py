@@ -4,6 +4,7 @@
 @contact: sherlockliao01@gmail.com
 """
 
+from numpy import size
 from torch.utils.data import Dataset
 
 from .data_utils import read_image
@@ -37,6 +38,11 @@ class CommDataset(Dataset):
         img_path = img_item[0]
         pid = img_item[1]
         camid = img_item[2]
+        frameid = img_item[3]
+        location = img_item[4]
+        conf = img_item[5]
+        coverage = img_item[6]
+        size = img_item[7]
         img = read_image(img_path)
         if self.transform is not None: img = self.transform(img)
         if self.relabel:
@@ -47,6 +53,11 @@ class CommDataset(Dataset):
             "targets": pid,
             "camids": camid,
             "img_paths": img_path,
+            "frameids": frameid,
+            "locations": location,
+            "confs": conf,
+            "coverages": coverage,
+            "sizes": size            
         }
 
     @property

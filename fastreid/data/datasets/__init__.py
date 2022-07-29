@@ -36,6 +36,7 @@ from .wildtracker import WildTrackCrop
 from .cuhk_sysu import cuhkSYSU
 
 # Vehicle re-id datasets
+from .overpass import Overpass
 from .veri import VeRi
 from .vehicleid import VehicleID, SmallVehicleID, MediumVehicleID, LargeVehicleID
 from .veriwild import VeRiWild, SmallVeRiWild, MediumVeRiWild, LargeVeRiWild

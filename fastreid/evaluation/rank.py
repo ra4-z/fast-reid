@@ -1,10 +1,12 @@
 # modified by Shengyuan
 # credits: https://github.com/KaiyangZhou/deep-person-reid/blob/master/torchreid/metrics/rank.py
 
+from imp import init_builtin
 import warnings
 from collections import defaultdict
-
+import time
 import numpy as np
+import logging
 
 try:
     from .rank_cylib.rank_cy import evaluate_cy
@@ -206,3 +208,118 @@ def evaluate_rank(
         return evaluate_cy(distmat, q_pids, g_pids, q_camids, g_camids, max_rank, use_metric_cuhk03)
     else:
         return evaluate_py(distmat, q_pids, g_pids, q_camids, g_camids, max_rank, use_metric_cuhk03)
+
+
+# TODO: turned into Multiple Process
+# TODO: turned into numba (with cuda.jit)
+from numba import jit,njit,cuda 
+# @jit
+def my_evaluate_rank(
+        distmat,
+        q_pids,
+        g_pids,
+        q_camids,
+        g_camids,
+        q_frameids,
+        g_frameids,
+        max_rank=50,
+        time_limit=True,
+):
+    logger = logging.getLogger(__name__)
+    logger.info("Ranking starts")
+    
+    num_q, num_g = distmat.shape
+
+    if num_g < max_rank:
+        max_rank = num_g
+        print('Note: number of gallery samples is quite small, got ', num_g)
+
+    start_time = time.perf_counter()
+    indices = np.argsort(distmat, axis=1)
+    logger.info('Total distance matrix computation time: {:.4f}s'.format(time.perf_counter() - start_time))
+    
+    # compute cmc curve for each query
+    all_cmc = []
+    all_AP = []
+    all_INP = []
+    num_valid_q = 0.  # number of valid query
+    ### to give matched rank list
+    rank_id_mat = []
+
+    start_time = time.perf_counter()
+    total_compute_time = 0
+    it_cnt = 0
+    for q_idx in range(num_q):
+        it_cnt += 1
+        # get query pid and camid
+        q_pid = q_pids[q_idx]
+        q_camid = q_camids[q_idx]
+
+        # remove gallery samples that have the same pid and camid with query
+        order = indices[q_idx] # the rank order of q_idx-th query
+        remove = (g_pids[order] == q_pid) & (g_camids[order] == q_camid)
+        
+        # remove gallery samples whose frame id is behind query frame id
+        if time_limit:
+            remove2 = (g_frameids[order] >= q_frameids[q_idx])
+            remove = remove & remove2
+        
+        keep = np.invert(remove) 
+        
+        # compute cmc curve
+        matches = (g_pids[order] == q_pid).astype(np.int32)
+        raw_cmc = matches[keep]  # binary vector, positions with value 1 are correct matches
+        if not np.any(raw_cmc):
+            # this condition is true when query identity does not appear in gallery
+            ### to give matched rank list
+            rank_id_mat.append([-1]*max_rank)
+            continue
+
+        cmc = raw_cmc.cumsum() # the cumulative sum of the elements along a given axis
+
+        pos_idx = np.where(raw_cmc == 1)
+        max_pos_idx = np.max(pos_idx)
+        inp = cmc[max_pos_idx] / (max_pos_idx + 1.0)
+        all_INP.append(inp)
+
+        cmc[cmc > 1] = 1
+
+        all_cmc.append(cmc[:max_rank]) # get the first #max_rank cmc
+        num_valid_q += 1.
+
+        # compute average precision
+        # reference: https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Average_precision
+        num_rel = raw_cmc.sum() # 匹配到的数量（已经去除同cam同id的了）
+        tmp_cmc = raw_cmc.cumsum()
+        tmp_cmc = [x / (i + 1.) for i, x in enumerate(tmp_cmc)]
+        tmp_cmc = np.asarray(tmp_cmc) * raw_cmc # 只有匹配上的那个才加入计算
+        AP = tmp_cmc.sum() / num_rel
+        all_AP.append(AP)
+
+        ### record the rank order
+        rank_id_mat.append(order[keep][:max_rank])
+        
+        
+        # time printer
+        if it_cnt % 500 == 0 or it_cnt == num_q:
+            now_time = time.perf_counter()
+            total_compute_time += now_time - start_time
+            start_time = now_time
+            # avg = total_compute_time/it_cnt
+            # eta = avg*(num_q-it_cnt)
+        #     print(it_cnt,"/",num_q,"finished")
+        #     print("avg compute time:",avg)
+        #     print("ETA:",eta)
+            logger.info(
+                f"Evaluation: {it_cnt}/{num_q} query finished, \
+                total compute time: {total_compute_time:.2f}s, \
+                avg compute time: {total_compute_time/it_cnt:.2f}s\
+                estimated remaining time: {(num_q-it_cnt)*total_compute_time/it_cnt:.2f}s"
+            )
+
+    # assert num_valid_q > 0, 'Error: all query identities do not appear in gallery'
+
+    all_cmc = np.asarray(all_cmc).astype(np.float32)
+    all_cmc = all_cmc.sum(0) / num_valid_q
+
+    return all_cmc, all_AP, all_INP,rank_id_mat
