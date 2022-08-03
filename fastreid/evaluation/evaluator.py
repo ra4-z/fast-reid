@@ -52,7 +52,7 @@ class DatasetEvaluator:
         pass
 
 
-# DONE TODO: data changed to (img_path, pid, camid, frameid) 
+
 def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
     """
     Run model on the data_loader and evaluate the metrics with evaluator.

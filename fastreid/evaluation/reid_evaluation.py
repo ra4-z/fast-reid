@@ -217,7 +217,71 @@ def vis_res_imgs(rank_id_mat, dist, q_pics, g_pics, res_dir='/data/codes/fast-re
         cv2.imwrite(res_dir+'res_'+q_pics[i].split('/')[-1],concat)
 
 
+def gen_gallery(gallery_features: torch.Tensor,gallery_pids,gallery_camids):
+    '''
+        function: average the gallery features of the same object in the same camera
+        return: new_gallery_features,new_gallery_pids,new_gallery_camids
+    '''
+    
+    new_gallery_features,new_gallery_pids,new_gallery_camids = [],[],[]
+    
+    gallery_dict = dict()
+    for idx, feature in enumerate(gallery_features):
+        pid = gallery_pids[idx]
+        camid = gallery_camids[idx]
+        if camid not in gallery_dict:
+            gallery_dict[camid] = dict()
+        if pid not in gallery_dict[camid]:
+            gallery_dict[camid][pid] = []
+        gallery_dict[camid][pid].append(feature)
+    
+    for camid in gallery_dict:
+        for pid in gallery_dict[camid]:
+            features = torch.stack(gallery_dict[camid][pid],dim=0) # check var?
+            avg_feature = torch.mean(features,axis=0)
+            new_gallery_features.append(avg_feature)
+            new_gallery_camids.append(camid)
+            new_gallery_pids.append(pid)
+    
+    new_gallery_features = torch.stack(new_gallery_features, dim=0)
+    
+    return new_gallery_features,new_gallery_pids,new_gallery_camids
+    
+    
 
+def new_match(dist, q_pids, q_camids, g_pids, g_camids):
+    '''
+        function: find the best match of each query, and return the accuracy
+    '''
+    inf = float("inf")
+    remove = np.array([[inf if g_camid == q_camid else 1. for g_camid in g_camids] for q_camid in q_camids])
+    dist = dist * remove
+    
+    rank_id = [np.argmin(dist,axis=1)]
+    
+    # to int
+    
+    # eq
+    acc = np.equal(q_pids, np.array(g_pids)[rank_id]).sum() / len(q_pids)
+    
+    return acc
+    
+    
+    
+    
+    
+    # num_q = len(q_pids)
+    # indices = np.argsort(distmat, axis=1)
+    # for q_idx in range(num_q):
+    #     q_pid = q_pids[q_idx]
+    #     q_camid = q_camids[q_idx]
+
+    #     # remove gallery samples that have the same pid and camid with query
+    #     order = indices[q_idx] # the rank order of q_idx-th query
+    #     remove = (g_camids[order] == q_camid)
+    #     keep = np.invert(remove) 
+        
+    
 
 class MyReidEvaluator(DatasetEvaluator):
     def __init__(self, cfg, num_query, output_dir=None):
@@ -270,7 +334,7 @@ class MyReidEvaluator(DatasetEvaluator):
             frameids.append(prediction['frameids'])
             img_paths.extend(prediction['img_paths'])
 
-        features = torch.cat(features, dim=0)
+        features = torch.cat(features, dim=0) # shape: (num_query+num_gallery, 2048)
         pids = torch.cat(pids, dim=0).numpy()
         camids = torch.cat(camids, dim=0).numpy()
         frameids = torch.cat(frameids, dim=0).numpy()
@@ -300,7 +364,35 @@ class MyReidEvaluator(DatasetEvaluator):
             alpha = self.cfg.TEST.AQE.ALPHA
             query_features, gallery_features = aqe(query_features, gallery_features, qe_time, qe_k, alpha)
 
+
         start_time = time.perf_counter()
+        
+        
+        # TODO: calculate distance between query and gallery
+        # TODO: one (camid,id)-> one feature in gallery set
+        
+        new_gallery_features,new_gallery_pids,new_gallery_camids = \
+            gen_gallery(gallery_features,gallery_pids,gallery_camids)
+        now_time = time.perf_counter()
+        logger.info(f"Unifying features time cost: {now_time-start_time:.4f}s")
+        
+        start_time = time.perf_counter()
+        dist = build_dist(query_features, new_gallery_features, self.cfg.TEST.METRIC)
+        now_time = time.perf_counter()
+        logger.info(f"Calculating distance matrix time cost: {now_time-start_time:.4f}s")
+        
+        start_time = time.perf_counter()
+        dist = build_dist(query_features, new_gallery_features, self.cfg.TEST.METRIC)
+        rank1 = new_match(dist, query_pids, query_camids, new_gallery_pids, new_gallery_camids)
+        now_time = time.perf_counter()
+        logger.info(f"Matching time cost: {now_time-start_time:.4f}s")
+        logger.info(f"rank1: {rank1:0.4f}")
+        
+        # rank1 = np.argmin(dist, axis=1)
+        # r1_map = np.sum(gallery_pids[rank1]==query_pids) / len(query_pids)
+        
+        # old version
+        '''
         dist = build_dist(query_features, gallery_features, self.cfg.TEST.METRIC)
         logger.info("Distance calculation time: {}".format(time.perf_counter() - start_time))
         
@@ -317,6 +409,8 @@ class MyReidEvaluator(DatasetEvaluator):
             rerank_dist = build_dist(query_features, gallery_features, metric="jaccard", k1=k1, k2=k2)
             dist = rerank_dist * (1 - lambda_value) + dist * lambda_value
 
+        
+        
         # calculate cmc, ap
         from .rank import my_evaluate_rank
         cmc, all_AP, all_INP, rank_id_mat = \
@@ -346,6 +440,8 @@ class MyReidEvaluator(DatasetEvaluator):
                 self._results["TPR@FPR={:.0e}".format(fpr)] = tprs[ind]
 
         return copy.deepcopy(self._results)
+        '''
+        
 
     def _compile_dependencies(self):
         # Since we only evaluate results in rank(0), so we just need to compile

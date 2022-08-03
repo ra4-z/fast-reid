@@ -222,8 +222,9 @@ def my_evaluate_rank(
         g_camids,
         q_frameids,
         g_frameids,
-        max_rank=50,
+        max_rank=20,
         time_limit=True,
+        print_period = 20,
 ):
     logger = logging.getLogger(__name__)
     logger.info("Ranking starts")
@@ -249,6 +250,7 @@ def my_evaluate_rank(
     start_time = time.perf_counter()
     total_compute_time = 0
     it_cnt = 0
+    biggest_period = 0
     for q_idx in range(num_q):
         it_cnt += 1
         # get query pid and camid
@@ -301,20 +303,24 @@ def my_evaluate_rank(
         
         
         # time printer
-        if it_cnt % 500 == 0 or it_cnt == num_q:
+        if it_cnt % print_period == 0 or it_cnt == num_q:
             now_time = time.perf_counter()
-            total_compute_time += now_time - start_time
+            period_time = now_time - start_time
+            total_compute_time += period_time
             start_time = now_time
+            biggest_period = max(biggest_period, period_time)
             # avg = total_compute_time/it_cnt
             # eta = avg*(num_q-it_cnt)
         #     print(it_cnt,"/",num_q,"finished")
         #     print("avg compute time:",avg)
         #     print("ETA:",eta)
             logger.info(
-                f"Evaluation: {it_cnt}/{num_q} query finished, \
-                total compute time: {total_compute_time:.2f}s, \
-                avg compute time: {total_compute_time/it_cnt:.2f}s\
-                estimated remaining time: {(num_q-it_cnt)*total_compute_time/it_cnt:.2f}s"
+                f"Evaluation: {it_cnt}/{num_q} query finished,\t\
+                total compute time: {total_compute_time:.2f}s,\t\
+                avg compute time: {total_compute_time/it_cnt:.2f}s\t\
+                estimated remaining time: {(num_q-it_cnt)*total_compute_time/it_cnt:.2f}s\t\
+                longest time per {print_period} queries: {biggest_period:.2f}s "
+
             )
 
     # assert num_valid_q > 0, 'Error: all query identities do not appear in gallery'
