@@ -5,12 +5,13 @@
 """
 
 from numpy import size
+import torch
 from torch.utils.data import Dataset
 
 from .data_utils import read_image
 
 
-class CommDataset(Dataset):
+class MyCommDataset(Dataset):
     """Image Person ReID Dataset"""
 
     def __init__(self, img_items, transform=None, relabel=True):
@@ -35,14 +36,11 @@ class CommDataset(Dataset):
 
     def __getitem__(self, index):
         img_item = self.img_items[index]
-        img_path = img_item[0]
-        pid = img_item[1]
-        camid = img_item[2]
-        frameid = img_item[3]
-        location = img_item[4]
-        conf = img_item[5]
-        coverage = img_item[6]
-        size = img_item[7]
+        img_path, pid, camid, frameid, location, conf, coverage, size, direc = img_item
+        # TODO: make all data but labels and strings become tensor
+        size = torch.tensor(size)
+        direc = torch.tensor(direc)
+
         img = read_image(img_path)
         if self.transform is not None: img = self.transform(img)
         if self.relabel:
@@ -57,7 +55,8 @@ class CommDataset(Dataset):
             "locations": location,
             "confs": conf,
             "coverages": coverage,
-            "sizes": size            
+            "sizes": size,
+            "direcs": direc,         
         }
 
     @property

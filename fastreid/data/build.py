@@ -14,7 +14,7 @@ from collections import Mapping
 from fastreid.config import configurable
 from fastreid.utils import comm
 from . import samplers
-from .common import CommDataset
+from .common import MyCommDataset
 from .data_utils import DataLoaderX
 from .datasets import DATASET_REGISTRY
 from .transforms import build_transforms
@@ -39,7 +39,7 @@ def _train_loader_from_config(cfg, *, train_set=None, transforms=None, sampler=N
                 data.show_train()
             train_items.extend(data.train)
 
-        train_set = CommDataset(train_items, transforms, relabel=True)
+        train_set = MyCommDataset(train_items, transforms, relabel=True)
 
     if sampler is None:
         sampler_name = cfg.DATALOADER.SAMPLER_TRAIN
@@ -108,7 +108,7 @@ def _test_loader_from_config(cfg, *, dataset_name=None, test_set=None, num_query
         if comm.is_main_process():
             data.show_test()
         test_items = data.query + data.gallery
-        test_set = CommDataset(test_items, transforms, relabel=False)
+        test_set = MyCommDataset(test_items, transforms, relabel=False)
 
         # Update query number
         num_query = len(data.query)

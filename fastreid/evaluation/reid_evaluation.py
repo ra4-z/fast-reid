@@ -217,69 +217,84 @@ def vis_res_imgs(rank_id_mat, dist, q_pics, g_pics, res_dir='/data/codes/fast-re
         cv2.imwrite(res_dir+'res_'+q_pics[i].split('/')[-1],concat)
 
 
-def gen_gallery(gallery_features: torch.Tensor,gallery_pids,gallery_camids):
+def gen_gallery(gallery_features: torch.Tensor,gallery_pids,gallery_camids,gallery_direcs,gallery_frameids):
     '''
-        function: average the gallery features of the same object in the same camera
-        return: new_gallery_features,new_gallery_pids,new_gallery_camids
+        function: 
+            1) average the gallery features of the same object in the same camera
+            2) get the direction of the last frame of each id in each camera
+        return: new_gallery_features,new_gallery_pids,new_gallery_camids,new_gallery_direcs
     '''
     
-    new_gallery_features,new_gallery_pids,new_gallery_camids = [],[],[]
+    new_gallery_features,new_gallery_pids,new_gallery_camids,new_gallery_direcs = [],[],[],[]
     
-    gallery_dict = dict()
+    # save gallery in camid-pid-feature format
+    gallery_feature_dict = dict()
     for idx, feature in enumerate(gallery_features):
         pid = gallery_pids[idx]
         camid = gallery_camids[idx]
-        if camid not in gallery_dict:
-            gallery_dict[camid] = dict()
-        if pid not in gallery_dict[camid]:
-            gallery_dict[camid][pid] = []
-        gallery_dict[camid][pid].append(feature)
+        if camid not in gallery_feature_dict:
+            gallery_feature_dict[camid] = dict()
+        if pid not in gallery_feature_dict[camid]:
+            gallery_feature_dict[camid][pid] = []
+        gallery_feature_dict[camid][pid].append(feature)
     
-    for camid in gallery_dict:
-        for pid in gallery_dict[camid]:
-            features = torch.stack(gallery_dict[camid][pid],dim=0) # check var?
+    # save the last direction of each id in each camera, in camid-pid-direction format
+    gallery_direc_dict = dict()
+    for idx,direc in enumerate(gallery_direcs):
+        pid = gallery_pids[idx]
+        camid = gallery_camids[idx]
+        frameid = gallery_frameids[idx]
+        if camid not in gallery_direc_dict:
+            gallery_direc_dict[camid] = dict()
+        if pid not in gallery_direc_dict[camid]:
+            gallery_direc_dict[camid][pid] = []
+        if gallery_direc_dict[camid][pid] == []:
+            gallery_direc_dict[camid][pid]=(frameid,direc)
+        elif gallery_direc_dict[camid][pid][0] < frameid:
+            gallery_direc_dict[camid][pid]=(frameid,direc)
+            
+    
+    for camid in gallery_feature_dict:
+        for pid in gallery_feature_dict[camid]:
+            # average the gallery features of the same object in the same camera
+            features = torch.stack(gallery_feature_dict[camid][pid],dim=0) # check var?
             avg_feature = torch.mean(features,axis=0)
             new_gallery_features.append(avg_feature)
+            # save the direction of the last frame of each id in each camera
+            direc = gallery_direc_dict[camid][pid][1]
+            new_gallery_direcs.append(direc)
+            
             new_gallery_camids.append(camid)
             new_gallery_pids.append(pid)
     
     new_gallery_features = torch.stack(new_gallery_features, dim=0)
+    new_gallery_direcs = torch.stack(new_gallery_direcs, dim=0)
     
-    return new_gallery_features,new_gallery_pids,new_gallery_camids
+    return new_gallery_features,new_gallery_pids,new_gallery_camids,new_gallery_direcs,
     
     
-
-def new_match(dist, q_pids, q_camids, g_pids, g_camids):
+# TODO: list生成改成全用tensor加速？
+def new_match(dist, q_pids, q_camids, q_dirs, g_pids, g_camids, g_dirs, limit_dir=False,):
     '''
         function: find the best match of each query, and return the accuracy
     '''
     inf = float("inf")
     remove = np.array([[inf if g_camid == q_camid else 1. for g_camid in g_camids] for q_camid in q_camids])
+    
+    # different directions mean no chance to match
+    if limit_dir:
+        remove2 = np.array([[inf if g_dir.dot(q_dir)<0 else 1. for g_dir in g_dirs] for q_dir in q_dirs])
+        remove = remove*remove2
+        
     dist = dist * remove
     
     rank_id = [np.argmin(dist,axis=1)]
     
-    # to int
-    
-    # eq
+    # calculate acc
     acc = np.equal(q_pids, np.array(g_pids)[rank_id]).sum() / len(q_pids)
     
     return acc
     
-    
-    
-    
-    
-    # num_q = len(q_pids)
-    # indices = np.argsort(distmat, axis=1)
-    # for q_idx in range(num_q):
-    #     q_pid = q_pids[q_idx]
-    #     q_camid = q_camids[q_idx]
-
-    #     # remove gallery samples that have the same pid and camid with query
-    #     order = indices[q_idx] # the rank order of q_idx-th query
-    #     remove = (g_camids[order] == q_camid)
-    #     keep = np.invert(remove) 
         
     
 
@@ -304,6 +319,7 @@ class MyReidEvaluator(DatasetEvaluator):
             'camids': inputs['camids'].to(self._cpu_device),
             'frameids': inputs['frameids'].to(self._cpu_device),
             'img_paths': inputs['img_paths'], #list
+            'direcs': inputs['direcs'].to(self._cpu_device), #list
         }
         self._predictions.append(prediction)
 
@@ -326,6 +342,7 @@ class MyReidEvaluator(DatasetEvaluator):
         camids = []
         frameids = []
         img_paths = []
+        direcs = []
         # combine all
         for prediction in predictions:
             features.append(prediction['feats'])
@@ -333,12 +350,14 @@ class MyReidEvaluator(DatasetEvaluator):
             camids.append(prediction['camids'])
             frameids.append(prediction['frameids'])
             img_paths.extend(prediction['img_paths'])
+            direcs.extend(prediction['direcs'])
 
         features = torch.cat(features, dim=0) # shape: (num_query+num_gallery, 2048)
         pids = torch.cat(pids, dim=0).numpy()
         camids = torch.cat(camids, dim=0).numpy()
         frameids = torch.cat(frameids, dim=0).numpy()
         img_paths = img_paths
+        direcs = torch.vstack(direcs) # shape: (num_query+num_gallery, 3)
 
         # separating query and gallery
         # query feature, person ids and camera ids
@@ -347,6 +366,7 @@ class MyReidEvaluator(DatasetEvaluator):
         query_camids = camids[:self._num_query]
         query_img_paths = img_paths[:self._num_query]
         query_frameids = frameids[:self._num_query]
+        query_direcs = direcs[:self._num_query]
         
         # gallery features, person ids and camera ids
         gallery_features = features[self._num_query:]
@@ -354,6 +374,7 @@ class MyReidEvaluator(DatasetEvaluator):
         gallery_camids = camids[self._num_query:]
         gallery_img_paths = img_paths[self._num_query:]
         gallery_frameids = frameids[self._num_query:]
+        gallery_direcs = direcs[self._num_query:]
 
         self._results = OrderedDict()
 
@@ -371,8 +392,8 @@ class MyReidEvaluator(DatasetEvaluator):
         # TODO: calculate distance between query and gallery
         # TODO: one (camid,id)-> one feature in gallery set
         
-        new_gallery_features,new_gallery_pids,new_gallery_camids = \
-            gen_gallery(gallery_features,gallery_pids,gallery_camids)
+        new_gallery_features,new_gallery_pids,new_gallery_camids,new_gallery_direcs = \
+            gen_gallery(gallery_features,gallery_pids,gallery_camids, gallery_direcs,gallery_frameids)
         now_time = time.perf_counter()
         logger.info(f"Unifying features time cost: {now_time-start_time:.4f}s")
         
@@ -383,7 +404,9 @@ class MyReidEvaluator(DatasetEvaluator):
         
         start_time = time.perf_counter()
         dist = build_dist(query_features, new_gallery_features, self.cfg.TEST.METRIC)
-        rank1 = new_match(dist, query_pids, query_camids, new_gallery_pids, new_gallery_camids)
+        rank1 = new_match(dist, query_pids, query_camids, query_direcs, 
+                          new_gallery_pids, new_gallery_camids, new_gallery_direcs,
+                          limit_dir=True)
         now_time = time.perf_counter()
         logger.info(f"Matching time cost: {now_time-start_time:.4f}s")
         logger.info(f"rank1: {rank1:0.4f}")

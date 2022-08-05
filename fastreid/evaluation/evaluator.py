@@ -83,6 +83,20 @@ def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
     total_compute_time = 0
     with inference_context(model), torch.no_grad():
         for idx, inputs in enumerate(data_loader):
+            ''' inputs:
+                {
+                    "images": img,
+                    "targets": pid,
+                    "camids": camid,
+                    "img_paths": img_path,
+                    "frameids": frameid,
+                    "locations": location,
+                    "confs": conf,
+                    "coverages": coverage,
+                    "sizes": size,
+                    "dir": direc,         
+                }
+            '''
             if idx == num_warmup:
                 start_time = time.perf_counter()
                 total_compute_time = 0
