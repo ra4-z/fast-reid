@@ -12,6 +12,7 @@ import itertools
 from collections import OrderedDict
 
 import numpy as np
+from regex import D
 from sympy import true
 import torch
 import torch.nn.functional as F
@@ -320,15 +321,15 @@ def new_match(dist, q_pids, q_camids, q_dirs, g_pids, g_camids, g_dirs, limit_di
     
     start_time = time.perf_counter()
     # TODO: list生成的方式太慢了，需要做成矩阵运算；考虑tensor？
-    # q_num, g_num = len(q_pids), len(g_pids)
-    # q_camids = torch.tensor(q_camids, dtype=torch.int8).to(device)
-    # q_camids = q_camids.tile((g_num,1)).t()
-    # g_camids = torch.tensor(g_camids, dtype=torch.int8).to(device)
-    # g_camids = g_camids.t().tile((q_num,1))
-    # remove = abs(torch.tan(torch.pi/2*(q_camids == g_camids))+1)
-    
     inf = float('inf')
-    remove = np.array([[inf if g_camid == q_camid else 1. for g_camid in g_camids] for q_camid in q_camids])
+    q_num, g_num = len(q_pids), len(g_pids)
+    q_camids = torch.tensor(q_camids, dtype=torch.int8).to(device)
+    q_camids = q_camids.tile((g_num,1)).t()
+    g_camids = torch.tensor(g_camids, dtype=torch.int8).to(device)
+    g_camids = g_camids.t().tile((q_num,1))
+    remove = (q_camids == g_camids)
+    
+    # remove = np.array([[inf if g_camid == q_camid else 1. for g_camid in g_camids] for q_camid in q_camids])
     now_time = time.perf_counter()
     logger.info(f'remove the same camera time cost: {now_time-start_time:.4f}s')
     
@@ -336,18 +337,28 @@ def new_match(dist, q_pids, q_camids, q_dirs, g_pids, g_camids, g_dirs, limit_di
     if limit_dir:
         start_time = time.perf_counter()
         # TODO: list生成的方式太慢了，需要做成矩阵运算；考虑tensor？
-        remove2 = np.array([[inf if g_dir.dot(q_dir)<0 else 1. for g_dir in g_dirs] for q_dir in q_dirs])
-        remove = remove*remove2
+        q_dirs = torch.tensor(q_dirs, dtype=torch.float16).to(device)
+        g_dirs = torch.tensor(g_dirs, dtype=torch.float16).to(device)
+        q_g_dirs = torch.mm(q_dirs,g_dirs.t())
+        remove2 = (q_g_dirs < 0)
+        remove = remove | remove2    
+        # remove2 = np.array([[inf if g_dir.dot(q_dir)<0 else 1. for g_dir in g_dirs] for q_dir in q_dirs])
+        # remove = remove*remove2
         now_time = time.perf_counter()
         logger.info(f'remove the wrong direction time cost: {now_time-start_time:.4f}s')
-        
+    
+    
     start_time = time.perf_counter()
-    dist = dist * remove
+    # dist = dist + remove
+    # dist = dist * remove
+    remove = remove.to(dtype=torch.float16)*1000
+    dist = torch.tensor(dist, dtype=torch.float16).to(device)
+    dist = dist + remove
     now_time = time.perf_counter()
     logger.info(f'revise distance matrix time cost: {now_time-start_time:.4f}s')
     
     start_time = time.perf_counter()
-    rank_id = [np.argmin(dist,axis=1)]
+    rank_id = torch.argmin(dist,axis=1).cpu().numpy()
     now_time = time.perf_counter()
     logger.info(f'ranking distance matrix time cost: {now_time-start_time:.4f}s')
     
@@ -427,7 +438,9 @@ class MyReidEvaluator(DatasetEvaluator):
         self._output_dir = output_dir
 
         self._cpu_device = torch.device('cpu')
-
+        
+        self._cuda_device = torch.device('cuda') if torch.cuda.is_available() else self._cpu_device
+        
         self._predictions = []
         self._compile_dependencies()
 
@@ -447,6 +460,7 @@ class MyReidEvaluator(DatasetEvaluator):
         }
         self._predictions.append(prediction)
 
+    @torch.no_grad()
     def evaluate(self, vis=True): 
         logger = logging.getLogger(__name__)
         logger.info('Evaluating results')
@@ -480,7 +494,7 @@ class MyReidEvaluator(DatasetEvaluator):
             coverages.extend(prediction['coverages'])
             confs.extend(prediction['confs'])
 
-        features = torch.cat(features, dim=0) # shape: (num_query+num_gallery, 2048)
+        features = torch.cat(features, dim=0).to(dtype=torch.float16, device=self._cuda_device) # shape: (num_query+num_gallery, 2048)
         # TODO: directly to numpy
         pids = torch.cat(pids, dim=0).numpy()  
         camids = torch.cat(camids, dim=0).numpy()
@@ -493,7 +507,7 @@ class MyReidEvaluator(DatasetEvaluator):
 
         # separating query and gallery
         # query feature, person ids and camera ids
-        query_features = features[:self._num_query] #torch.float32
+        query_features = features[:self._num_query] 
         query_pids = pids[:self._num_query]
         query_camids = camids[:self._num_query]
         query_img_paths = img_paths[:self._num_query]

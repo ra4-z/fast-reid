@@ -65,8 +65,8 @@ if __name__ == "__main__":
         --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/vehicleid_bot_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
     
-    line2 = "--config-file /data/codes/fast-reid/configs/VehicleID/bagtricks_R50-ibn.yml \
-        --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/vehicleid_bot_R50-ibn.pth \
+    line2 = "--config-file /data/codes/fast-reid/configs/Overpass/bagtricks_R50-ibn.yml \
+        --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veriwild_bot_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
 
     line3 = "--config-file /data/codes/fast-reid/configs/VeRi/sbs_R50-ibn_vehicleID.yml \
@@ -98,7 +98,8 @@ if __name__ == "__main__":
 
     line9 = "--config-file /data/codes/fast-reid/configs/VeRi/sbs_R50-ibn.yml \
         MODEL.DEVICE \"cuda:0\" ".split()
-    args = default_argument_parser().parse_args(line)
+        
+    args = default_argument_parser().parse_args(line0)
     print("Command Line Args:", args)
     launch(
         main,
