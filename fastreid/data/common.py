@@ -40,6 +40,7 @@ class MyCommDataset(Dataset):
         # TODO: make all data but labels and strings become tensor
         size = torch.tensor(size)
         direc = torch.tensor(direc)
+        
 
         img = read_image(img_path)
         if self.transform is not None: img = self.transform(img)

@@ -57,15 +57,11 @@ def main(args):
 
 if __name__ == "__main__":
 
-    line = "--config-file /data/codes/fast-reid/configs/Overpass/sbs_R50-ibn.yml \
-        --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veri_sbs_R50-ibn.pth \
-        MODEL.DEVICE \"cuda:0\" ".split()
-
-    line0 = "--config-file /data/codes/fast-reid/configs/VeRi/sbs_R50-ibn.yml \
+    line0 = "--config-file /data/codes/fast-reid/configs/Overpass/sbs_R50-ibn.yml \
         --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/veri_sbs_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
     
-    line1 = "--config-file /data/codes/fast-reid/configs/VehicleID/bagtricks_R50-ibn_veri.yml \
+    line1 = "--config-file /data/codes/fast-reid/configs/Overpass/bagtricks_R50-ibn.yml \
         --eval-only MODEL.WEIGHTS /data/data/fastreid_pth/vehicleid_bot_R50-ibn.pth \
         MODEL.DEVICE \"cuda:0\" ".split()
     
