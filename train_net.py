@@ -5,6 +5,7 @@
 @contact: sherlockliao01@gmail.com
 """
 
+from cv2 import line
 from fastreid.utils.checkpoint import Checkpointer
 from fastreid.engine import DefaultTrainer, default_argument_parser, default_setup, launch
 from fastreid.config import get_cfg
@@ -29,7 +30,26 @@ def setup(args):
     default_setup(cfg, args)
     return cfg
 
-
+def main_multi_model(argss):
+    if not isinstance(argss, list):
+        return main(argss)
+    
+    cfg = None
+    models = []
+    for args in argss:
+        cfg = setup(args)
+        cfg.defrost()
+        cfg.MODEL.BACKBONE.PRETRAIN = False
+        cfg.TEST.NORMAL = False
+        
+        model = DefaultTrainer.build_model(cfg)
+        Checkpointer(model).load(cfg.MODEL.WEIGHTS)
+        
+        models.append(model)
+        
+    res = DefaultTrainer.test(cfg, models)
+    return res
+    
 def main(args):
     cfg = setup(args)
 
@@ -98,14 +118,19 @@ if __name__ == "__main__":
 
     line9 = "--config-file /data/codes/fast-reid/configs/VeRi/sbs_R50-ibn.yml \
         MODEL.DEVICE \"cuda:0\" ".split()
-        
-    args = default_argument_parser().parse_args(line0)
-    print("Command Line Args:", args)
-    launch(
-        main,
-        args.num_gpus,
-        num_machines=args.num_machines,
-        machine_rank=args.machine_rank,
-        dist_url=args.dist_url,
-        args=(args,),
-    )
+    
+    lines = [line0]
+    argss = []
+    for line in lines:
+        args = default_argument_parser().parse_args(line)
+        argss.append(args)
+        # print("Command Line Args:", args)
+    main_multi_model(argss)
+    # launch(
+    #     main,
+    #     args.num_gpus,
+    #     num_machines=args.num_machines,
+    #     machine_rank=args.machine_rank,
+    #     dist_url=args.dist_url,
+    #     args=(args,),
+    # )

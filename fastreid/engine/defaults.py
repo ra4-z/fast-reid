@@ -366,7 +366,7 @@ class DefaultTrainer(TrainerBase):
         """
         model = build_model(cfg)
         logger = logging.getLogger(__name__)
-        logger.info("Model:\n{}".format(model))
+        # logger.info("Model:\n{}".format(model))
         return model
 
     @classmethod
@@ -415,11 +415,11 @@ class DefaultTrainer(TrainerBase):
         return data_loader, MyReidEvaluator(cfg, num_query, output_dir)
 
     @classmethod
-    def test(cls, cfg, model):
+    def test(cls, cfg, models):
         """
         Args:
             cfg (CfgNode):
-            model (nn.Module):
+            models list of (nn.Module):
         Returns:
             dict: a dict of result metrics
         """
@@ -436,7 +436,8 @@ class DefaultTrainer(TrainerBase):
                 )
                 results[dataset_name] = {}
                 continue
-            results_i = inference_on_dataset(model, data_loader, evaluator, flip_test=cfg.TEST.FLIP.ENABLED)
+            # 为什么inference_on_dataset会执行两次？
+            results_i = inference_on_dataset(models, data_loader, evaluator, flip_test=cfg.TEST.FLIP.ENABLED)
             results[dataset_name] = results_i
 
             ''' 

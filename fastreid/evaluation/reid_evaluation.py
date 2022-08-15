@@ -320,7 +320,6 @@ def new_match(dist, q_pids, q_camids, q_dirs, g_pids, g_camids, g_dirs, limit_di
     
     
     start_time = time.perf_counter()
-    # TODO: list生成的方式太慢了，需要做成矩阵运算；考虑tensor？
     inf = float('inf')
     q_num, g_num = len(q_pids), len(g_pids)
     q_camids = torch.tensor(q_camids, dtype=torch.int8).to(device)
@@ -336,7 +335,6 @@ def new_match(dist, q_pids, q_camids, q_dirs, g_pids, g_camids, g_dirs, limit_di
     # different directions mean no chance to match
     if limit_dir:
         start_time = time.perf_counter()
-        # TODO: list生成的方式太慢了，需要做成矩阵运算；考虑tensor？
         q_dirs = torch.tensor(q_dirs, dtype=torch.float16).to(device)
         g_dirs = torch.tensor(g_dirs, dtype=torch.float16).to(device)
         q_g_dirs = torch.mm(q_dirs,g_dirs.t())
@@ -364,12 +362,12 @@ def new_match(dist, q_pids, q_camids, q_dirs, g_pids, g_camids, g_dirs, limit_di
     
     # calculate acc
     start_time = time.perf_counter()
-    g_pids = np.array(g_pids)[rank_id]
-    acc = np.equal(q_pids, g_pids).sum() / len(q_pids)
+    pred = np.array(g_pids)[rank_id]
+    acc = np.equal(q_pids, pred).sum() / len(q_pids)
     now_time = time.perf_counter()
     logger.info(f'calculate accuaracy time cost: {now_time-start_time:.4f}s')
     
-    return acc, q_pids, g_pids
+    return acc, q_pids, pred
     
         
 def new_vis(q_pids, g_pids, res_dir='/data/codes/fast-reid/res/',
@@ -412,10 +410,24 @@ def new_vis(q_pids, g_pids, res_dir='/data/codes/fast-reid/res/',
         g_pic_name = find_pic(os.path.join(dataset_dir,'image_test'), g_pids[idx],q_camid)
         if g_pic_name==None:
             continue
-        
         q_pic = cv2.imread(q_pic_name)
-        hq,wq,cq = q_pic.shape
         g_pic = cv2.imread(g_pic_name)
+        
+        ## -------- temporily -----------
+        if not os.path.exists('/data/codes/fast-reid/res/true/'):
+            os.makedirs('/data/codes/fast-reid/res/true/')
+        if not os.path.exists('/data/codes/fast-reid/res/wrong/'):
+            os.makedirs('/data/codes/fast-reid/res/wrong/')
+        if q_pids[idx]==g_pids[idx]:
+            tmp_name = '/data/codes/fast-reid/res/true/'+f'res_{q_pids[idx]:04d}.jpg'
+            cv2.imwrite(tmp_name,q_pic)
+        else:
+            tmp_name = '/data/codes/fast-reid/res/wrong/'+f'res_{q_pids[idx]:04d}.jpg'
+            cv2.imwrite(tmp_name,q_pic)
+        ## ------------------------------    
+            
+        
+        hq,wq,cq = q_pic.shape
         hg,wg,cg = g_pic.shape
         h,w = max(hq,hg), max(wq,wg)
         q_pic = cv2.copyMakeBorder(q_pic, 0, h-hq, 0, 0, cv2.BORDER_CONSTANT, value=(0,0,0))
@@ -553,15 +565,41 @@ class MyReidEvaluator(DatasetEvaluator):
         logger.info(f'Calculating distance matrix {len(query_pids)}x{len(new_gallery_pids)}, time cost: {now_time-start_time:.4f}s')
         
         start_time = time.perf_counter()
-        rank1, q_pids, g_pids = new_match(dist, query_pids, query_camids, query_direcs, 
+        rank1, q_pids, pred = new_match(dist, query_pids, query_camids, query_direcs, 
                           new_gallery_pids, new_gallery_camids, new_gallery_direcs,
                           limit_dir=True)
         now_time = time.perf_counter()
         logger.info(f'Matching time cost: {now_time-start_time:.4f}s')
         logger.info(f'rank1: {rank1:0.4f}')
         
+        ##------temporily-----
+        # import json
+        # save_path = "/data/codes/fast-reid/gt_pred.txt"
+        # res = dict(zip(query_pids,pred))
+        # with open(save_path,'w') as wj:
+        #     json.dump(res,wj)
+        
+        ##---------------------
+        
+        ##------temporily-----
+        '''
+        import json
+        save_res = dict() # camid-gt-pred
+        for idx in range(len(q_pids)):
+            if str(query_camids[idx]) not in save_res:
+                save_res[str(query_camids[idx])] = dict()
+            if str(q_pids[idx]) not in save_res[str(query_camids[idx])]:
+                save_res[str(query_camids[idx])][str(q_pids[idx])] = None
+            save_res[str(query_camids[idx])][str(q_pids[idx])] = str(pred[idx])
+        save_path = "/data/codes/fast-reid/gt_pred.json"
+        with open(save_path,'w') as wj:
+            json.dump(save_res,wj)
+        '''
+        
+        ##--------------------
+        
         start_time = time.perf_counter()
-        new_vis(q_pids=q_pids, g_pids=g_pids, only_neg=True)
+        new_vis(q_pids=q_pids, g_pids=pred, only_neg=True)
         now_time = time.perf_counter()
         logger.info(f'visualization time cost: {now_time-start_time:.4f}s')
         

@@ -53,12 +53,12 @@ class DatasetEvaluator:
 
 
 
-def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
+def inference_on_dataset(models, data_loader, evaluator, flip_test=False):
     """
     Run model on the data_loader and evaluate the metrics with evaluator.
     The model will be used in eval mode.
     Args:
-        model (nn.Module): a module which accepts an object from
+        models list of (nn.Module): a module which accepts an object from
             `data_loader` and returns some outputs. It will be temporarily set to `eval` mode.
             If you wish to evaluate a model in `training` mode instead, you can
             wrap the given model and override its behavior of `.eval()` and `.train()`.
@@ -81,7 +81,7 @@ def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
     num_warmup = min(5, total - 1)
     start_time = time.perf_counter()
     total_compute_time = 0
-    with inference_context(model), torch.no_grad():
+    with inference_context(models), torch.no_grad():
         for idx, inputs in enumerate(data_loader):
             ''' inputs:
                 {
@@ -104,12 +104,18 @@ def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
             start_compute_time = time.perf_counter()
 
             # inputs is {'images':..., }
-            outputs = model(inputs) # get features
+            if isinstance(models, list):
+                outputs = []
+                for model in models:
+                    outputs.append(model(inputs)) # get features
+                outputs = torch.hstack(outputs)
+            else:
+                outputs = models(inputs) # get features
             # Flip test
-            if flip_test:
-                inputs["images"] = inputs["images"].flip(dims=[3])
-                flip_outputs = model(inputs)
-                outputs = (outputs + flip_outputs) / 2
+            # if flip_test:
+            #     inputs["images"] = inputs["images"].flip(dims=[3])
+            #     flip_outputs = model(inputs)
+            #     outputs = (outputs + flip_outputs) / 2
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
             total_compute_time += time.perf_counter() - start_compute_time
@@ -153,16 +159,21 @@ def inference_on_dataset(model, data_loader, evaluator, flip_test=False):
 
 
 @contextmanager
-def inference_context(model):
+def inference_context(models):
     """
     A context where the model is temporarily changed to eval mode,
     and restored to previous mode afterwards.
     Args:
         model: a torch Module
     """
-    training_mode = model.training
-    model.eval()
+    if not isinstance(models, list):
+        models = [models]
+    training_mode = []
+    for model in models:
+        model.eval()
+        training_mode.append(model.training)
     yield
-    model.train(training_mode)
+    for idx,model in enumerate(models):
+        model.train(training_mode[idx])
 
 
